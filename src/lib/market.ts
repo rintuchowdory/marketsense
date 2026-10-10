@@ -182,11 +182,23 @@ export function backtestMaCross(candles: Candle[], fastPeriod = 10, slowPeriod =
 
   for (let i = 1; i < candles.length; i++) {
     const price = closes[i];
+    const prevClose = closes[i - 1];
+
+    // 1) Credit this candle's incremental return while a position is open
+    //    (entry is at a signal candle's close, so returns start the next candle).
+    const candleReturn = inPosition ? price / prevClose - 1 : 0;
+    equity.push(equity[equity.length - 1] * (1 + candleReturn));
+    buyHold.push((price / closes[0]) * 100);
+
+    peak = Math.max(peak, equity[equity.length - 1]);
+    const dd = ((peak - equity[equity.length - 1]) / peak) * 100;
+    if (dd > maxDrawdown) maxDrawdown = dd;
+
+    // 2) Then act on crosses detected at this candle's close.
     const prevFast = fastAt(i - 1);
     const prevSlow = slowAt(i - 1);
     const fast = fastAt(i);
     const slow = slowAt(i);
-
     const golden = prevFast <= prevSlow && fast > slow;
     const death = prevFast >= prevSlow && fast < slow;
 
@@ -198,14 +210,6 @@ export function backtestMaCross(candles: Candle[], fastPeriod = 10, slowPeriod =
       inPosition = false;
       entry = 0;
     }
-
-    const candleReturn = inPosition && entry > 0 ? (price - entry) / entry : 0;
-    equity.push(equity[equity.length - 1] * (1 + candleReturn));
-    buyHold.push((price / closes[0]) * 100);
-
-    peak = Math.max(peak, equity[equity.length - 1]);
-    const dd = ((peak - equity[equity.length - 1]) / peak) * 100;
-    if (dd > maxDrawdown) maxDrawdown = dd;
   }
 
   const wins = tradeReturns.filter((r) => r > 0);
