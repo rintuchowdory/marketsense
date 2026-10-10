@@ -9,6 +9,8 @@ import PriceChart from "./components/PriceChart";
 import SignalBreakdown from "./components/SignalBreakdown";
 import SentimentGauge from "./components/SentimentGauge";
 import LiveFeed from "./components/LiveFeed";
+import BacktestPanel from "./components/BacktestPanel";
+import PriceAlerts from "./components/PriceAlerts";
 import Footer from "./components/Footer";
 import ComingSoon from "./components/ComingSoon";
 import { useMarketData } from "./hooks/useMarketData";
@@ -97,8 +99,13 @@ export default function App() {
               <div className="min-h-[420px]">
                 <PriceChart candles={chartHistory} signals={signals} timeframe={timeframe} onTimeframe={setTimeframe} />
               </div>
-              <SentimentGauge value={sentimentScore} />
+              <div className="flex flex-col gap-4">
+                <SentimentGauge value={sentimentScore} />
+                <PriceAlerts asset={selectedAsset} price={selectedPrice} />
+              </div>
             </div>
+
+            <BacktestPanel candles={chartHistory} asset={selectedAsset} />
 
             <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4">
               <SignalBreakdown verdict={verdict} fundamental={fundamentalText} technical={technicalText} risk={riskText} />
