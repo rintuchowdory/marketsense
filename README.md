@@ -8,13 +8,15 @@ An open-source, 1:1 clone of the [MarketSense](https://tradexau.base44.app/) AI 
 
 ## What's inside
 
-- **Live ticker tape** — scrolling marquee of BTC/USD, XAU/USD, AAPL, US30
-- **Asset cards** — price, 24h change, sparklines for 4 instruments
+- **Live ticker tape** — scrolling marquee of BTC/USD, XAU/USD, AAPL, US30, ETH/USD, TSLA, NVDA, US100
+- **Asset cards** — price, 24h change, sparklines for 8 instruments
+- **Price alerts** — arm above/below thresholds per asset; the simulated feed marks them TRIGGERED, persisted in localStorage
 - **Technical panel** — RSI(14), MA20, MA50, MA Cross (Golden/Death) computed from the chart series
 - **Price & Signal chart** — area/candlestick view, 15m → 1M timeframes, MA-crossover buy/sell markers (powered by [lightweight-charts](https://github.com/tradingview/lightweight-charts))
 - **Signal breakdown** — "AI verdict" (BUY / SELL / HOLD) with fundamental, technical, and risk narratives
 - **Sentiment meter** — gauge blending news sentiment + RSI
 - **Live feed** — filterable news & social stream with BULLISH / BEARISH / NEUTRAL tags
+- **Strategy backtest** — MA(10/20) crossover backtest over the visible history with win rate, profit factor, max drawdown, and an equity curve vs buy & hold
 - **Auto refresh** — 20-second countdown that nudges the simulated feed
 
 ## Quick start

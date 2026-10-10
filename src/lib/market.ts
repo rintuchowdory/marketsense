@@ -1,7 +1,7 @@
 // Simulated "delayed public market feed" engine — same spirit as the original
 // MarketSense demo: educational simulation, not real trading data.
 
-export type AssetSymbol = "BTCUSD" | "XAUUSD" | "AAPL" | "US30";
+export type AssetSymbol = "BTCUSD" | "XAUUSD" | "AAPL" | "US30" | "ETHUSD" | "TSLA" | "NVDA" | "US100";
 
 export interface AssetConfig {
   symbol: AssetSymbol;
@@ -18,6 +18,10 @@ export const ASSETS: AssetConfig[] = [
   { symbol: "XAUUSD", label: "XAU/USD", name: "Gold", icon: "Au", basePrice: 4405, volatility: 0.002, decimals: 0 },
   { symbol: "AAPL", label: "AAPL", name: "Apple Inc.", icon: "A", basePrice: 319.97, volatility: 0.003, decimals: 2 },
   { symbol: "US30", label: "US30", name: "Dow Jones", icon: "DJ", basePrice: 53000, volatility: 0.002, decimals: 0 },
+  { symbol: "ETHUSD", label: "ETH/USD", name: "Ethereum", icon: "Ξ", basePrice: 2950, volatility: 0.007, decimals: 0 },
+  { symbol: "TSLA", label: "TSLA", name: "Tesla Inc.", icon: "T", basePrice: 412.4, volatility: 0.005, decimals: 2 },
+  { symbol: "NVDA", label: "NVDA", name: "NVIDIA Corp.", icon: "N", basePrice: 182.6, volatility: 0.005, decimals: 2 },
+  { symbol: "US100", label: "US100", name: "Nasdaq 100", icon: "NQ", basePrice: 21400, volatility: 0.0025, decimals: 0 },
 ];
 
 export interface Candle {
@@ -135,6 +139,100 @@ export function pctChange(candles: Candle[]): number {
 
 export function fmtPrice(value: number, decimals: number): string {
   return value.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+// --- MA-crossover strategy backtest (educational simulation) ---
+
+export interface BacktestResult {
+  trades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  totalPct: number; // strategy cumulative return %
+  buyHoldPct: number; // passive buy & hold return over the same window
+  profitFactor: number;
+  avgWinPct: number;
+  avgLossPct: number;
+  bestPct: number;
+  worstPct: number;
+  maxDrawdownPct: number;
+  equity: number[]; // strategy equity path, indexed = 100
+  buyHold: number[]; // buy & hold path, indexed = 100
+}
+
+export function backtestMaCross(candles: Candle[], fastPeriod = 10, slowPeriod = 20): BacktestResult {
+  const empty: BacktestResult = {
+    trades: 0, wins: 0, losses: 0, winRate: 0, totalPct: 0, buyHoldPct: 0,
+    profitFactor: 0, avgWinPct: 0, avgLossPct: 0, bestPct: 0, worstPct: 0,
+    maxDrawdownPct: 0, equity: [100], buyHold: [100],
+  };
+  if (candles.length < slowPeriod + 2) return empty;
+
+  const closes = candles.map((c) => c.close);
+  const fastAt = (i: number) => avg(closes.slice(Math.max(0, i - fastPeriod + 1), i + 1));
+  const slowAt = (i: number) => avg(closes.slice(Math.max(0, i - slowPeriod + 1), i + 1));
+
+  const tradeReturns: number[] = [];
+  let inPosition = false;
+  let entry = 0;
+  const equity: number[] = [100];
+  const buyHold: number[] = [100];
+  let peak = 100;
+  let maxDrawdown = 0;
+
+  for (let i = 1; i < candles.length; i++) {
+    const price = closes[i];
+    const prevFast = fastAt(i - 1);
+    const prevSlow = slowAt(i - 1);
+    const fast = fastAt(i);
+    const slow = slowAt(i);
+
+    const golden = prevFast <= prevSlow && fast > slow;
+    const death = prevFast >= prevSlow && fast < slow;
+
+    if (!inPosition && golden && i >= slowPeriod - 1) {
+      inPosition = true;
+      entry = price;
+    } else if (inPosition && (death || i === candles.length - 1)) {
+      tradeReturns.push(((price - entry) / entry) * 100);
+      inPosition = false;
+      entry = 0;
+    }
+
+    const candleReturn = inPosition && entry > 0 ? (price - entry) / entry : 0;
+    equity.push(equity[equity.length - 1] * (1 + candleReturn));
+    buyHold.push((price / closes[0]) * 100);
+
+    peak = Math.max(peak, equity[equity.length - 1]);
+    const dd = ((peak - equity[equity.length - 1]) / peak) * 100;
+    if (dd > maxDrawdown) maxDrawdown = dd;
+  }
+
+  const wins = tradeReturns.filter((r) => r > 0);
+  const losses = tradeReturns.filter((r) => r <= 0);
+  const sumWins = wins.reduce((a, b) => a + b, 0);
+  const sumLosses = Math.abs(losses.reduce((a, b) => a + b, 0));
+
+  return {
+    trades: tradeReturns.length,
+    wins: wins.length,
+    losses: losses.length,
+    winRate: tradeReturns.length ? (wins.length / tradeReturns.length) * 100 : 0,
+    totalPct: equity[equity.length - 1] - 100,
+    buyHoldPct: buyHold[buyHold.length - 1] - 100,
+    profitFactor: sumLosses === 0 ? (sumWins > 0 ? Infinity : 0) : sumWins / sumLosses,
+    avgWinPct: wins.length ? sumWins / wins.length : 0,
+    avgLossPct: losses.length ? -sumLosses / losses.length : 0,
+    bestPct: tradeReturns.length ? Math.max(...tradeReturns) : 0,
+    worstPct: tradeReturns.length ? Math.min(...tradeReturns) : 0,
+    maxDrawdownPct: maxDrawdown,
+    equity,
+    buyHold,
+  };
+}
+
+function avg(values: number[]): number {
+  return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
 export function verdictFromState(rsiValue: number, cross: "golden" | "death", sentiment: number): "BUY" | "SELL" | "HOLD" {
